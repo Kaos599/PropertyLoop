@@ -1,0 +1,58 @@
+real_estate_chatbot/.env
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore virtual environment directories
+venv/
+env/
+ENV/
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore log files
+*.log
+
+# Ignore compiled files
+*.so
+*.dll
+*.dylib
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Ignore test output
+.tox/
+.nox/
+
+# Ignore build directories
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Ignore IDE specific files
+.vscode/
+.idea/
+
+# Ignore other config files
+*.cfg
+*.ini
+*.toml
+
+# Ignore other environment files
+*.env
