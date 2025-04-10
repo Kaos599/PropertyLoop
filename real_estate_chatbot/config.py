@@ -5,14 +5,14 @@ Loads environment variables and provides configuration functions.
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.utilities import GoogleSearchAPIWrapper
+from langchain_community.utilities import GoogleSearchAPIWrapper
 
 # Load environment variables from .env file
 load_dotenv()
 
 def get_gemini_flash_llm():
     """
-    Returns a configured ChatGoogleGenerativeAI instance using the gemini-2.0-flash model.
+    Returns a configured ChatGoogleGenerativeAI instance using the gemini-1.5-flash model.
     Used primarily for image analysis and routing.
     """
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -20,7 +20,7 @@ def get_gemini_flash_llm():
         raise ValueError("GOOGLE_API_KEY environment variable not set")
     
     return ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         google_api_key=api_key,
         temperature=0.2,
         convert_system_message_to_human=True
@@ -28,7 +28,7 @@ def get_gemini_flash_llm():
 
 def get_gemini_pro_llm():
     """
-    Returns a configured ChatGoogleGenerativeAI instance using the gemini-2.0-flash-thinking-exp-01-21 model.
+    Returns a configured ChatGoogleGenerativeAI instance using the gemini-1.5-pro model.
     Used primarily for text-based analysis and responses.
     """
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -36,7 +36,7 @@ def get_gemini_pro_llm():
         raise ValueError("GOOGLE_API_KEY environment variable not set")
     
     return ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-thinking-exp-01-21",
+        model="gemini-1.5-pro",
         google_api_key=api_key,
         temperature=0.3,
         convert_system_message_to_human=True

@@ -1,4 +1,4 @@
-# Real Estate Assistant Chatbot
+# Real Estate Assistant Chatbot for PropertyLoop
 
 ## Overview
 This multi-agent chatbot system is designed to help users with property issues and tenancy questions. The system incorporates image analysis and text-based responses to provide comprehensive real estate assistance.
@@ -7,6 +7,9 @@ This multi-agent chatbot system is designed to help users with property issues a
 - **Property Issue Detection Agent**: Analyzes uploaded images to identify property issues (mold, cracks, leaks, etc.) and provides troubleshooting suggestions
 - **Tenancy FAQ Agent**: Answers questions about tenant rights, landlord responsibilities, and rental regulations with location-specific guidance
 - **Smart Routing**: Automatically determines which agent should handle each query based on input type
+- **Enhanced Context**: Incorporates property details like type, age, and occupancy for better analysis
+- **Structured Output**: Well-formatted responses with visual categorization of different information types
+- **Modern UI**: User-friendly interface with clear visual distinction between different response types
 
 ## Technology Stack
 - **Orchestration**: Langchain & LangGraph
@@ -38,8 +41,10 @@ This multi-agent chatbot system is designed to help users with property issues a
 4. For property issues:
    - Upload an image of the property issue
    - Optionally include a description
+   - Fill in additional context like property type and age in the sidebar
 5. For tenancy questions:
    - Simply type your question (no image needed)
+   - Provide location information for region-specific advice
 
 ## Configuration
 Required environment variables:
@@ -60,3 +65,23 @@ Optional environment variables:
 - `graph.py`: LangGraph state definition and workflow
 - `app.py`: Streamlit web application
 - `requirements.txt`: Project dependencies
+
+## Response Types
+
+### Property Issue Reports
+- **Issue Assessment**: Detailed description of problems identified in the image
+- **Troubleshooting Suggestions**: Actionable advice for addressing issues
+- **Professional Referrals**: Recommendations for appropriate specialists
+- **Safety Warnings**: Urgent alerts for potential hazards
+
+### Tenancy FAQ Responses
+- **Main Answer**: Primary response to the tenancy question
+- **Legal References**: Relevant laws, regulations, or legal principles
+- **Regional Specifics**: Location-specific information when provided
+- **Additional Resources**: Organizations or sources for further assistance
+- **Legal Disclaimer**: Clear statement that information is not legal advice
+
+## Attribution
+Created by Harsh Dayal (harshdayal13@gmail.com) as part of a PropertyLoop assignment. 
+
+© 2024 PropertyLoop Assistant powered by Langchain, LangGraph, and Google Gemini.

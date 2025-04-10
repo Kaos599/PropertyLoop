@@ -14,12 +14,12 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.agents import create_react_agent, AgentExecutor
 from langchain.tools import Tool
 
-# Import Google's genai client for direct API access
-from google import genai
-from google.genai import types
+# Import Google's generative AI client
+import google.generativeai as genai
+from google.generativeai import types
 
 import config
-from schemas import PropertyIssueReport
+from schemas import PropertyIssueReport, TenancyFAQResponse
 
 # System prompts
 PROPERTY_ISSUE_SYSTEM_PROMPT = """
@@ -31,10 +31,17 @@ You are a Property Issue Detection Assistant, an AI system designed to help user
 - Analyze user-uploaded images of properties to identify visible issues and concerns based on the image AND any accompanying text from the user.
 - Generate detailed assessments of detected problems according to the required output schema.
 - Provide practical troubleshooting suggestions and remediation advice within the schema.
+- Consider additional context like property type, age, and occupancy status if provided.
 - Ask clarifying questions ONLY IF the image is completely ambiguous or crucial details are missing AND cannot be inferred. Focus on providing an assessment based on what IS visible first.
 
 ## Issue Detection Guidelines
-Carefully examine images for common property issues including: Moisture Issues (water damage, mold), Structural Issues (cracks, sagging), Electrical Issues (exposed wires, burn marks - visual only), Plumbing Issues (visible leaks, corrosion), Environmental Issues (poor lighting, pests), Cosmetic Issues (peeling paint, damaged fixtures).
+Carefully examine images for common property issues including: 
+- Moisture Issues (water damage, mold, damp patches)
+- Structural Issues (cracks, sagging, foundation problems, subsidence)
+- Electrical Issues (exposed wires, burn marks, outdated wiring - visual only)
+- Plumbing Issues (visible leaks, corrosion, water stains, discoloration)
+- Environmental Issues (poor lighting, pests, ventilation problems)
+- Cosmetic Issues (peeling paint, damaged fixtures, worn-out materials)
 
 ## Response Format REQUIRED
 You **MUST** respond using the structured output format defined by the `PropertyIssueReport` Pydantic schema. Populate the following fields based on your analysis:
@@ -47,6 +54,7 @@ You **MUST** respond using the structured output format defined by the `Property
 - Use clear, accessible language.
 - Be thorough but concise.
 - Prioritize analysis of visible evidence in the image and user text.
+- If property details (type, age, occupancy) are provided, incorporate this into your analysis.
 
 ## Response Limitations
 - Base assessment solely on visible evidence. State if an issue needs in-person professional inspection for confirmation.
@@ -71,11 +79,19 @@ You are a Tenancy FAQ Assistant, specialized in answering questions about proper
 - Provide actionable next steps when appropriate
 - Cite sources of information when possible
 
-## Response Format
-- Be concise but thorough
+## Response Format REQUIRED
+You **MUST** respond using the structured output format defined by the `TenancyFAQResponse` Pydantic schema. Populate the following fields based on your analysis:
+1. **answer**: Your main response to the user's tenancy-related question. Be direct, informative, and helpful.
+2. **legal_references**: List relevant laws, regulations, or legal principles you've referenced. Include specific acts, statutes, or regulations when possible.
+3. **regional_specifics**: If a location was provided, include location-specific information here. Otherwise, leave as null.
+4. **disclaimer**: The default legal disclaimer will be included automatically.
+5. **additional_resources**: List organizations, websites, or other resources the user can contact for more information.
+
+## Communication Guidelines
 - Use clear, non-technical language
 - Structure complex answers with bullet points or numbered lists when appropriate
-- When providing information about legal matters, include appropriate disclaimers about not being legal advice
+- When providing information about legal matters, maintain a balanced perspective
+- Base your answers on current, accurate information from reliable sources
 
 Remember to search for current information before answering questions about specific tenancy laws or regulations, especially when a location is specified.
 """
@@ -122,6 +138,11 @@ def run_agent_1(state: Dict[str, Any]) -> Dict[str, Any]:
         encoded_image = base64.b64encode(image_data).decode("utf-8")
         image_uri = f"data:image/jpeg;base64,{encoded_image}"
         
+        # Extract additional context if available
+        context = []
+        if "location" in state and state["location"]:
+            context.append(f"Location: {state['location']}")
+            
         # Create multimodal input for Gemini
         human_message = HumanMessage(
             content=[
@@ -147,36 +168,11 @@ def run_agent_1(state: Dict[str, Any]) -> Dict[str, Any]:
             ]
         )
         
-        # Format response for display
-        # Create parts of the response separately to avoid backslash issues
-        assessment_section = f"## Property Issue Assessment\n{result.issue_assessment}\n\n"
-        
-        suggestions_section = "## Troubleshooting Suggestions\n"
-        if result.troubleshooting_suggestions:
-            suggestions_section += "\n".join([f"- {item}" for item in result.troubleshooting_suggestions])
-        else:
-            suggestions_section += "No troubleshooting suggestions available."
-            
-        referrals_section = "\n\n## Professional Referrals\n"
-        if result.professional_referral:
-            referrals_section += "\n".join([f"- {item}" for item in result.professional_referral])
-        else:
-            referrals_section += "No professional referrals needed."
-            
-        warnings_section = "\n\n## Safety Warnings\n"
-        if result.safety_warnings:
-            warnings_section += "\n".join([f"- {item}" for item in result.safety_warnings])
-        else:
-            warnings_section += "No immediate safety concerns detected."
-            
-        # Combine all sections
-        formatted_response = assessment_section + suggestions_section + referrals_section + warnings_section
-        
+        # Return the structured output directly to be handled by the UI
         return {
             **state,
-            "response": formatted_response,
-            "sender": "agent_1",
-            "structured_response": result
+            "response": result,
+            "sender": "agent_1"
         }
         
     except Exception as e:
@@ -191,7 +187,7 @@ def run_agent_2(state: Dict[str, Any]) -> Dict[str, Any]:
     Agent 2: Tenancy FAQ Agent
     
     Answers questions about tenancy laws and regulations with grounding via Google Search.
-    Uses direct Google genai client with Google Search tool.
+    Uses direct Google genai client with Google Search tool and returns structured output.
     
     Args:
         state: The current state dictionary containing:
@@ -230,7 +226,7 @@ def run_agent_2(state: Dict[str, Any]) -> Dict[str, Any]:
         system_instruction = TENANCY_FAQ_SYSTEM_PROMPT
         
         # Create the model configuration with Google Search tool
-        model = "gemini-2.0-flash"  # Using newer model
+        model = "gemini-1.5-pro"  # Using more capable model for structured output
         
         # Format contents with system instruction and user query
         contents = [
@@ -248,106 +244,183 @@ def run_agent_2(state: Dict[str, Any]) -> Dict[str, Any]:
         ]
         
         # Set up generation config
-        generate_content_config = types.GenerateContentConfig(
-            tools=tools,
-            response_mime_type="text/plain",
-        )
+        generation_config = {
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 2048,
+        }
         
-        # Get response from the model
-        response_text = ""
-        for chunk in client.models.generate_content_stream(
+        safety_settings = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
+        
+        # Make the API call with tool use enabled
+        response = client.generate_content(
             model=model,
             contents=contents,
-            config=generate_content_config,
-        ):
-            if chunk.text:
-                response_text += chunk.text
+            generation_config=generation_config,
+            safety_settings=safety_settings,
+            tools=tools,
+        )
         
-        return {
-            **state,
-            "response": response_text,
-            "sender": "agent_2"
-        }
+        # Process the response to create structured output
+        try:
+            # Initialize the LLM for structured output
+            llm = config.get_gemini_pro_llm()
+            
+            # Extract the response text
+            response_text = response.text
+            
+            # Process through structured output parser
+            structured_response = llm.with_structured_output(TenancyFAQResponse).invoke(
+                [
+                    SystemMessage(content=f"""
+                    Parse the following response into the TenancyFAQResponse schema format. 
+                    Extract relevant information to populate each field correctly:
+                    - answer: The main answer to the user's question
+                    - legal_references: Any laws or regulations mentioned
+                    - regional_specifics: Location-specific information if present
+                    - additional_resources: Any mentioned organizations, websites, or resources for further help
+                    
+                    Response to parse:
+                    {response_text}
+                    """),
+                ]
+            )
+            
+            # Format the structured response for display
+            formatted_response = structured_response
+            
+            return {
+                **state,
+                "response": formatted_response,
+                "sender": "agent_2"
+            }
+            
+        except Exception as parsing_error:
+            # If structured parsing fails, return the raw response
+            return {
+                **state,
+                "response": response.text,
+                "sender": "agent_2"
+            }
         
     except Exception as e:
         return {
-            **state, 
-            "response": f"I encountered an error while researching your tenancy question: {str(e)}. Please try again.",
+            **state,
+            "response": f"I encountered an error answering your question: {str(e)}. Please try rephrasing or asking a different question.",
             "sender": "agent_2"
         }
 
 def route_query(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Router Agent
-    
-    Determines which specialized agent should handle the query.
+    Router to determine which agent should handle the query.
     
     Args:
         state: The current state dictionary
-            
+        
     Returns:
-        Updated state with routing decision
+        Updated state with next node to route to
     """
-    query = state.get("query", "")
-    image_data = state.get("image_data")
-    
-    # If image is present, route to Agent 1 (Property Issue Detection)
-    if image_data is not None:
-        return {**state, "next": "agent_1"}
-    
-    # For text-only queries, use an LLM to classify
-    if query:
+    try:
+        query = state.get("query", "")
+        image_data = state.get("image_data")
+        
+        # If there's an image, definitely route to Agent 1
+        if image_data:
+            return {
+                **state,
+                "next": "agent_1"
+            }
+        
+        # If no query, ask for clarification
+        if not query.strip():
+            return {
+                **state,
+                "next": "clarification",
+                "response": "Please provide a question or upload an image of a property issue so I can assist you."
+            }
+        
+        # Initialize the LLM
         llm = config.get_gemini_flash_llm()
         
-        human_message = HumanMessage(content=query)
-        system_message = SystemMessage(content=ROUTER_SYSTEM_PROMPT)
+        # Get routing decision
+        router_response = llm.invoke(
+            [
+                SystemMessage(content=ROUTER_SYSTEM_PROMPT),
+                HumanMessage(content=query)
+            ]
+        )
         
-        # Get classification from the LLM
-        response = llm.invoke([system_message, human_message])
-        classification = response.content.strip()
+        router_decision = router_response.content.strip()
         
-        if "PROPERTY_ISSUE" in classification:
-            # Need image for property issue
-            return {**state, "next": "clarification"}
-        elif "TENANCY_FAQ" in classification:
-            return {**state, "next": "agent_2"}
-            
-    # Default to clarification for unclear queries or empty queries
-    return {**state, "next": "clarification"}
+        if "PROPERTY_ISSUE" in router_decision:
+            if not image_data:
+                return {
+                    **state,
+                    "next": "clarification",
+                    "response": "It looks like you're asking about a property issue. Could you upload an image of the issue so I can analyze it better?"
+                }
+            else:
+                return {
+                    **state,
+                    "next": "agent_1"
+                }
+        elif "TENANCY_FAQ" in router_decision:
+            return {
+                **state,
+                "next": "agent_2"
+            }
+        else:  # UNCLEAR_ISSUE
+            return {
+                **state,
+                "next": "clarification",
+                "response": "I'm not sure if you're asking about a property issue or a tenancy question. Could you provide more details or specify which type of assistance you need?"
+            }
+    
+    except Exception as e:
+        return {
+            **state,
+            "next": "clarification",
+            "response": f"I encountered an error routing your query: {str(e)}. Could you please rephrase your question?"
+        }
 
 def ask_clarification(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Clarification Agent
-    
-    Asks the user for clarification when the query is unclear.
+    Asks for clarification when query is unclear.
     
     Args:
         state: The current state dictionary
-            
+        
     Returns:
-        Updated state with clarification question
+        Updated state with clarification response
     """
-    query = state.get("query", "")
+    # If response is already set by router, use that
+    if "response" in state and state["response"]:
+        return {
+            **state,
+            "sender": "clarification"
+        }
     
-    # Check if this is likely a property issue question
-    if query:
-        llm = config.get_gemini_flash_llm()
-        human_message = HumanMessage(content=query)
-        system_message = SystemMessage(content=ROUTER_SYSTEM_PROMPT)
-        
-        # Get classification from the LLM
-        response = llm.invoke([system_message, human_message])
-        classification = response.content.strip()
-        
-        if "PROPERTY_ISSUE" in classification:
-            return {
-                **state,
-                "response": "To help you with property issues, I'll need to see an image of the problem. Could you please upload a photo?",
-                "sender": "clarification"
-            }
-    
+    # Default clarification message
     return {
         **state,
-        "response": "I'm not sure what you're asking about. Are you inquiring about property issues (please provide an image) or do you have questions about tenancy laws and regulations?",
+        "response": "I need more information to help you. Are you asking about a property issue (please upload an image if so) or do you have a question about tenancy laws and regulations?",
         "sender": "clarification"
     }
