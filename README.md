@@ -104,5 +104,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
-- SHL for the project requirements and guidance
 - The LangChain and Streamlit communities for their excellent tools
