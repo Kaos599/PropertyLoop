@@ -1,5 +1,5 @@
 langchain==0.3.18
-langchain_community==0.0.10
+langchain_community==0.3.15
 langchain-google-genai==2.0.8
 langgraph==0.2.67
 streamlit==1.35.0
