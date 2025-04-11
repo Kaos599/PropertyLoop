@@ -1,87 +1,108 @@
-# Real Estate Assistant Chatbot for PropertyLoop
+# PropertyLoop Real Estate Assistant
 
-## Overview
-This multi-agent chatbot system is designed to help users with property issues and tenancy questions. The system incorporates image analysis and text-based responses to provide comprehensive real estate assistance.
+A sophisticated AI-powered real estate assistant built to serve landlords, property managers, and tenants with accurate, personalized, and contextually relevant information about property management, tenancy law, and maintenance issues.
 
 ## Features
-- **Property Issue Detection Agent**: Analyzes uploaded images to identify property issues (mold, cracks, leaks, etc.) and provides troubleshooting suggestions
-- **Tenancy FAQ Agent**: Answers questions about tenant rights, landlord responsibilities, and rental regulations with location-specific guidance
-- **Smart Routing**: Automatically determines which agent should handle each query based on input type
-- **Enhanced Context**: Incorporates property details like type, age, and occupancy for better analysis
-- **Structured Output**: Well-formatted responses with visual categorization of different information types
-- **Modern UI**: User-friendly interface with clear visual distinction between different response types
 
-## Technology Stack
-- **Orchestration**: Langchain & LangGraph
-- **LLMs**: Google Gemini (gemini-1.5-flash-latest, gemini-1.5-pro-latest)
-- **Grounding**: Google Search API
-- **UI**: Streamlit
-- **Configuration**: Python with dotenv
-- **Data Validation**: Pydantic
+### 🏠 Multi-Agent Architecture
+- **Specialized Agent System**: Leverages multiple AI agents, each with distinct expertise areas including property issues, legal matters, and tenancy FAQs
+- **Collaborative Problem Solving**: Agents work together through a directed knowledge graph to provide comprehensive responses
+- **Advanced Context Management**: Maintains conversation history to provide consistent, personalized responses
 
-## Setup/Installation
-1. Clone the repository
+### 📋 Property Issue Reporting
+- **Detailed Problem Documentation**: Capture, categorize, and evaluate property maintenance issues
+- **Severity Assessment**: AI-driven evaluation of issue urgency and potential impact
+- **Solution Recommendations**: Practical guidance for addressing common property problems
+- **Professional Referral**: Suggestions for when to contact qualified professionals
+
+### ⚖️ Legal & Regulatory Guidance
+- **Tenancy Law Information**: Clear explanations of rights and responsibilities
+- **Region-Specific Advice**: Location-aware recommendations based on local regulations
+- **Contract Interpretation**: Help understanding lease agreements and rental terms
+- **Compliance Guidance**: Information on safety regulations and legal requirements
+
+### 💬 Natural Conversation Interface
+- **Context-Aware Responses**: Understands complex questions and provides relevant answers
+- **Multimedia Support**: Upload images of property issues for enhanced analysis
+- **Location Awareness**: Provides region-specific advice when location is specified
+- **User-Friendly Design**: Intuitive interface with premium enterprise SaaS aesthetic
+
+### 🔍 Advanced Information Retrieval
+- **Knowledge Integration**: Combines specialized property management knowledge with broader real estate information
+- **Citation Support**: References reliable sources for legal and regulatory information
+- **Up-to-date Information**: Access to current best practices and regulations
+
+## Technical Overview
+
+### Architecture
+The system uses a directed knowledge graph implemented with LangGraph to coordinate specialized agents:
+
+1. **Router Agent**: Directs queries to appropriate specialist agents
+2. **Property Issues Agent**: Handles maintenance and property problem questions
+3. **Legal Agent**: Provides regulatory and compliance information
+4. **Tenancy FAQ Agent**: Answers common questions about tenancy agreements and processes
+5. **Safety Agent**: Addresses urgent safety concerns with appropriate warnings
+
+### Technologies Used
+- **LangChain & LangGraph**: For agent orchestration and knowledge management
+- **Generative AI**: Powered by advanced language models for natural conversations
+- **Streamlit**: For the responsive web interface
+- **Python**: Core programming language with data processing capabilities
+- **Pydantic**: For structured data validation and schema enforcement
+
+## Installation & Setup
+
+### Prerequisites
+- Python 3.9+
+- pip package manager
+
+### Installation
+1. Clone the repository:
+```bash
+git clone https://github.com/Kaos599/property-loop-real-estate-chatbot.git
+cd property-loop-real-estate-chatbot
+```
+
 2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-3. Create a `.env` file with the following variables:
-   ```
-   GOOGLE_API_KEY=your_google_api_key
-   GOOGLE_CSE_ID=your_google_cse_id
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-## Usage
-1. Navigate to the project directory
-2. Run the Streamlit app:
-   ```
-   streamlit run app.py
-   ```
-3. Access the web interface at http://localhost:8501
-4. For property issues:
-   - Upload an image of the property issue
-   - Optionally include a description
-   - Fill in additional context like property type and age in the sidebar
-5. For tenancy questions:
-   - Simply type your question (no image needed)
-   - Provide location information for region-specific advice
+3. Set up environment variables:
+Create a `.env` file in the project root with:
+```
+GOOGLE_API_KEY=your_google_api_key
+```
 
-## Configuration
-Required environment variables:
-- `GOOGLE_API_KEY`: API key for Google Gemini and Google Search
-- `GOOGLE_CSE_ID`: Custom Search Engine ID for Google Search
+4. Run the application:
+```bash
+streamlit run app.py
+```
 
-Optional environment variables:
-- `LANGCHAIN_TRACING_V2`: Enable LangSmith tracing
-- `LANGCHAIN_ENDPOINT`: LangSmith endpoint URL
-- `LANGCHAIN_API_KEY`: LangSmith API key
-- `LANGCHAIN_PROJECT`: LangSmith project name
+## Usage Examples
 
-## Project Structure
-- `.env`: Environment variables for API keys
-- `config.py`: Configuration module
-- `schemas.py`: Pydantic schemas for structured output
-- `agents.py`: Implements Agent 1 and Agent 2 logic
-- `graph.py`: LangGraph state definition and workflow
-- `app.py`: Streamlit web application
-- `requirements.txt`: Project dependencies
+### Property Issue Reporting
+Ask about specific property problems:
+> "There's a water leak under my kitchen sink. What should I do?"
 
-## Response Types
+### Tenancy Questions
+Inquire about common rental situations:
+> "My landlord wants to increase my rent. How much notice should they give me?"
 
-### Property Issue Reports
-- **Issue Assessment**: Detailed description of problems identified in the image
-- **Troubleshooting Suggestions**: Actionable advice for addressing issues
-- **Professional Referrals**: Recommendations for appropriate specialists
-- **Safety Warnings**: Urgent alerts for potential hazards
+### Legal Guidance
+Get information about regulations:
+> "What are the legal requirements for carbon monoxide detectors in a rental property?"
 
-### Tenancy FAQ Responses
-- **Main Answer**: Primary response to the tenancy question
-- **Legal References**: Relevant laws, regulations, or legal principles
-- **Regional Specifics**: Location-specific information when provided
-- **Additional Resources**: Organizations or sources for further assistance
-- **Legal Disclaimer**: Clear statement that information is not legal advice
+### Regional Specifics
+Get location-aware advice:
+> "What are the eviction notice requirements in London?"
 
-## Attribution
-Created by Harsh Dayal (harshdayal13@gmail.com) as part of a PropertyLoop assignment. 
+## Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-© 2024 PropertyLoop Assistant powered by Langchain, LangGraph, and Google Gemini.
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+- SHL for the project requirements and guidance
+- The LangChain and Streamlit communities for their excellent tools
