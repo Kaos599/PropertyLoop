@@ -1,5 +1,13 @@
 # PropertyLoop Real Estate Assistant
 
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![LangChain](https://img.shields.io/badge/LangChain-0.3.18-green)](https://github.com/langchain-ai/langchain)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.35.0-red)](https://streamlit.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Google Gemini](https://img.shields.io/badge/Gemini_AI-2.0-orange)](https://ai.google.dev/)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)](https://github.com/Kaos599/PropertyLoop)
+[![Demo](https://img.shields.io/badge/Demo-Live-success)](https://property-loop-assistant.streamlit.app/)
+
 A sophisticated AI-powered real estate assistant built to serve landlords, property managers, and tenants with accurate, personalized, and contextually relevant information about property management, tenancy law, and maintenance issues.
 
 ## Features
