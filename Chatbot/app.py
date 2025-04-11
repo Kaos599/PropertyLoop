@@ -9,6 +9,7 @@ from typing import Dict, List, Any
 import base64
 import datetime
 import logging
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -749,6 +750,19 @@ with st.sidebar:
         st.markdown('<div class="image-preview">', unsafe_allow_html=True)
         st.image(uploaded_file, caption="Image Preview", use_column_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Show image status
+        if st.session_state.image_processed:
+            st.markdown('<div style="color: green; margin-bottom: 10px;">✓ Image processed</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="color: orange; margin-bottom: 10px;">⚠ Click "Process New Image" to analyze this image</div>', unsafe_allow_html=True)
+        
+        # Add a button to process a new image
+        if st.button("Process New Image"):
+            st.session_state.image_processed = False
+            st.session_state.reset_image_processed = False
+            # Force a rerun to immediately process the image
+            st.rerun()
     
     st.markdown("---")
     
@@ -763,6 +777,7 @@ with st.sidebar:
     if st.button("Clear Chat History"):
         st.session_state.messages = []
         st.session_state.location_set = False
+        st.session_state.image_processed = False
         st.rerun()
 
 # Initialize chat history
@@ -772,6 +787,18 @@ if "messages" not in st.session_state:
 # Add a variable to track if chat input should be disabled during processing
 if "is_chat_input_disabled" not in st.session_state:
     st.session_state.is_chat_input_disabled = False
+
+# Add a variable to track if an image has been processed
+if "image_processed" not in st.session_state:
+    st.session_state.image_processed = False
+
+# Add a variable to track if we need to reset the image_processed flag after processing completes
+if "reset_image_processed" not in st.session_state:
+    st.session_state.reset_image_processed = False
+
+# Add a variable to track the last agent used
+if "last_agent" not in st.session_state:
+    st.session_state.last_agent = None
 
 # Display chat history
 for message in st.session_state.messages:
@@ -847,13 +874,17 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Type your question here...", disabled=st.session_state.is_chat_input_disabled)
 
 # When a user submits input
-if user_input or (uploaded_file and 'last_file' not in st.session_state or uploaded_file != st.session_state.get('last_file')):
-    if uploaded_file:
+if user_input or (uploaded_file and not st.session_state.image_processed):
+    # Reset image processed flag when a new file is uploaded
+    if uploaded_file and ('last_file' not in st.session_state or uploaded_file != st.session_state.get('last_file')):
         st.session_state.last_file = uploaded_file
+        st.session_state.image_processed = False
+        # Set the reset flag to prevent automatic processing after the first input
+        st.session_state.reset_image_processed = False
         
     # Prepare image data if uploaded
     image_data = None
-    if uploaded_file is not None:
+    if uploaded_file is not None and not st.session_state.image_processed:
         # Read the file into bytes
         image_bytes = uploaded_file.getvalue()
         image_data = image_bytes
@@ -870,11 +901,17 @@ if user_input or (uploaded_file and 'last_file' not in st.session_state or uploa
         else:
             message_content = "[Image attached]"
         st.session_state.messages.append({"role": "user", "content": message_content, "image": image_b64})
-    else:
+        
+        # Only mark image as processed after a successful API call
+        st.session_state.reset_image_processed = True
+    elif user_input:
         # Text-only message
         with st.chat_message("user", avatar="👤"):
             st.markdown(user_input)
         st.session_state.messages.append({"role": "user", "content": user_input})
+    else:
+        # No input, no unprocessed image - do nothing
+        pass
     
     # Disable chat input during processing
     st.session_state.is_chat_input_disabled = True
@@ -902,8 +939,84 @@ if user_input or (uploaded_file and 'last_file' not in st.session_state or uploa
         
         # Append context to query if it exists
         enhanced_query = user_input if user_input else ""
+        
+        # Context management helper functions
+        def extract_context_from_history(messages):
+            """
+            Extract relevant context from the chat history to maintain conversation context.
+            
+            Args:
+                messages: The chat history messages
+                
+            Returns:
+                str: A summarized context from the conversation history
+            """
+            context = []
+            
+            # Extract content from the last 5 messages or fewer if not enough
+            recent_messages = messages[-5:] if len(messages) > 5 else messages
+            
+            for msg in recent_messages:
+                if not isinstance(msg, dict):
+                    continue
+            
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                
+                if not role or not content:
+                    continue
+            
+                if role == "user":
+                    # Clean up image attachments to get just the text content
+                    if "[Image attached]" in content:
+                        clean_content = content.replace("\n\n[Image attached]", "")
+                        if clean_content.strip():  # Only add if there's actual text content
+                            context.append(f"User said: {clean_content}")
+                    else:
+                        context.append(f"User asked: {content}")
+                elif role == "assistant":
+                    # Extract the most relevant information from assistant responses
+                    if "property_report" in msg:
+                        try:
+                            report = msg["property_report"]
+                            context.append(f"Assistant identified: {report.issue_assessment[:100]}...")
+                        except (AttributeError, TypeError):
+                            context.append("Assistant analyzed a property issue")
+                    elif "tenancy_response" in msg:
+                        try:
+                            response = msg["tenancy_response"]
+                            context.append(f"Assistant answered: {response.answer[:100]}...")
+                        except (AttributeError, TypeError):
+                            context.append("Assistant answered a tenancy question")
+                    else:
+                        # For plain text responses
+                        context.append(f"Assistant replied: {content[:100]}")
+            
+            # Join the context items with appropriate separations
+            if context:
+                return " ".join(context)
+            
+            return ""
+
+        # Extract conversation context from history
+        conversation_context = extract_context_from_history(st.session_state.messages)
+        
+        # Include relevant conversation context
+        if conversation_context:
+            logger.debug(f"Extracted conversation context: {conversation_context}")
+            if enhanced_query:
+                enhanced_query = f"Previous context: {conversation_context}\n\nCurrent query: {enhanced_query}"
+            else:
+                enhanced_query = f"Previous context: {conversation_context}"
+        else:
+            logger.debug("No conversation context extracted from history")
+        
+        # Add additional context from sidebar if available
         if context_str and enhanced_query:
             enhanced_query += f"\n\nAdditional context:{context_str}"
+            logger.debug(f"Added property context: {context_str}")
+        
+        logger.debug(f"Final enhanced query: {enhanced_query}")
         
         # Add debug logging for tenancy questions
         if user_input and not uploaded_file:
@@ -925,14 +1038,16 @@ if user_input or (uploaded_file and 'last_file' not in st.session_state or uploa
         # Prepare initial state for the graph
         initial_state = {
             "query": enhanced_query,
-            "image_data": image_data,
+            "image_data": image_data,  # Always include image_data if it's being processed in this request
             "location": context_info["location"],
             "response": None,
             "sender": "user",
             "chat_history": st.session_state.messages
         }
         
-        logger.debug(f"Initial state: {initial_state}")
+        # Log initial state without the large data
+        debug_state = {k: v for k, v in initial_state.items() if k not in ["image_data", "chat_history"]}
+        logger.debug(f"Initial state: {debug_state}")
         
         # Invoke the graph
         try:
@@ -951,6 +1066,7 @@ if user_input or (uploaded_file and 'last_file' not in st.session_state or uploa
             with st.chat_message("assistant", avatar="🏠"):
                 if isinstance(response, PropertyIssueReport):
                     logger.debug("Rendering PropertyIssueReport")
+                    st.session_state.last_agent = "property_issue"
                     st.markdown("### Property Issue Assessment")
                     st.markdown(f'<div class="property-issue">{response.issue_assessment}</div>', unsafe_allow_html=True)
                     
@@ -984,6 +1100,7 @@ if user_input or (uploaded_file and 'last_file' not in st.session_state or uploa
                 
                 elif isinstance(response, TenancyFAQResponse):
                     logger.debug("Rendering TenancyFAQResponse")
+                    st.session_state.last_agent = "tenancy_faq"
                     st.markdown("### Answer")
                     st.markdown(f'<div class="tenancy-answer">{response.answer}</div>', unsafe_allow_html=True)
                     
@@ -1016,6 +1133,15 @@ if user_input or (uploaded_file and 'last_file' not in st.session_state or uploa
                 
                 else:
                     logger.debug(f"Rendering plain text response: {response}")
+                    # Try to determine agent type from response content
+                    if any(word in str(response).lower() for word in ["property", "issue", "damage", "repair", "fix"]):
+                        st.session_state.last_agent = "property_issue"
+                    elif any(word in str(response).lower() for word in ["tenant", "landlord", "rent", "lease"]):
+                        st.session_state.last_agent = "tenancy_faq"
+                    else:
+                        # Keep the existing agent if we can't determine
+                        pass
+                        
                     st.markdown(response)
                     # Add to session state
                     st.session_state.messages.append({
@@ -1030,6 +1156,11 @@ if user_input or (uploaded_file and 'last_file' not in st.session_state or uploa
                 "role": "assistant", 
                 "content": f"I encountered an error: {str(e)}"
             })
+            
+        # After processing, set the image_processed flag if needed
+        if st.session_state.reset_image_processed:
+            st.session_state.image_processed = True
+            st.session_state.reset_image_processed = False
     
     # Re-enable chat input after processing
     st.session_state.is_chat_input_disabled = False

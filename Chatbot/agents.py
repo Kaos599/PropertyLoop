@@ -33,6 +33,7 @@ You are a Property Issue Detection Assistant, an AI system designed to help user
 - Provide practical troubleshooting suggestions and remediation advice within the schema.
 - Consider additional context like property type, age, and occupancy status if provided.
 - Ask clarifying questions ONLY IF the image is completely ambiguous or crucial details are missing AND cannot be inferred. Focus on providing an assessment based on what IS visible first.
+- Maintain continuity from previous interactions when conversation context is provided. Reference prior findings when relevant.
 
 ## Issue Detection Guidelines
 Carefully examine images for common property issues including: 
@@ -42,6 +43,13 @@ Carefully examine images for common property issues including:
 - Plumbing Issues (visible leaks, corrosion, water stains, discoloration)
 - Environmental Issues (poor lighting, pests, ventilation problems)
 - Cosmetic Issues (peeling paint, damaged fixtures, worn-out materials)
+
+## Conversation Continuity
+When "CONVERSATION CONTEXT" is provided in the user's query:
+- Reference the previous findings when relevant to the current query
+- Build upon previous diagnoses rather than starting from scratch
+- If the user is asking about a previously identified issue, provide more specific advice
+- Use conversational language to ensure smooth transitions between topics
 
 ## Response Format REQUIRED
 You **MUST** respond using the structured output format defined by the `PropertyIssueReport` Pydantic schema. Populate the following fields based on your analysis:
@@ -71,6 +79,7 @@ You are a Tenancy FAQ Assistant, specialized in answering questions about proper
 - Provide location-specific guidance when a location is mentioned in the query
 - Ground your answers in factual information by performing web searches for legal or regulatory information
 - Deliver clear, practical advice to help users navigate tenancy situations
+- Maintain conversation continuity by referencing previous interactions when context is provided
 
 ## Guidelines for Responses
 - Always search for up-to-date information when answering questions about specific laws, regulations, or location-specific practices
@@ -78,6 +87,13 @@ You are a Tenancy FAQ Assistant, specialized in answering questions about proper
 - Be balanced in representing both tenant and landlord perspectives
 - Provide actionable next steps when appropriate
 - Cite sources of information when possible
+
+## Conversation Continuity
+When "CONVERSATION CONTEXT" is provided in the user's query:
+- Reference previous questions and answers to provide continuity
+- Build upon previously provided information rather than repeating it
+- Address follow-up questions in the context of earlier discussions
+- Use conversational language to ensure smooth transitions between topics
 
 ## Response Format REQUIRED
 You **MUST** respond using the structured output format defined by the `TenancyFAQResponse` Pydantic schema. Populate the following fields based on your analysis:
@@ -103,6 +119,10 @@ If the query includes an image or mentions analyzing a photo/picture of a proper
 
 If the query is about tenancy laws, tenant rights, landlord obligations, lease agreements, or any rental/housing regulations, route to Agent 2 (Tenancy FAQ).
 
+If the query directly references previous findings from a property issue analysis or is a follow-up question about a property issue, route to Agent 1.
+
+If the query directly references previous information about tenancy laws or is a follow-up question about tenancy advice, route to Agent 2.
+
 If the query is unclear or doesn't fit either category, respond with "UNCLEAR_ISSUE".
 
 Respond only with one of these exact labels: "PROPERTY_ISSUE", "TENANCY_FAQ", or "UNCLEAR_ISSUE".
@@ -126,17 +146,35 @@ def run_agent_1(state: Dict[str, Any]) -> Dict[str, Any]:
         query = state.get("query", "")
         image_data = state.get("image_data")
         
-        if not image_data:
+        # Check for conversation context marker
+        has_conversation_context = "CONVERSATION CONTEXT:" in query if query else False
+        
+        # Only require image data if there's no conversation context
+        if not image_data and not has_conversation_context:
             return {
                 **state,
                 "response": "I need an image to analyze property issues. Please upload a photo of the issue.",
                 "sender": "agent_1"
             }
         
-        # Process the image data
-        # Convert bytes to base64 for Gemini
-        encoded_image = base64.b64encode(image_data).decode("utf-8")
-        image_uri = f"data:image/jpeg;base64,{encoded_image}"
+        # Process the image data if available
+        human_message_content = []
+        
+        # Always add the text query
+        human_message_content.append({
+            "type": "text",
+            "text": query if query else "Please analyze this image for property issues."
+        })
+        
+        # Add image if available
+        if image_data:
+            # Convert bytes to base64 for Gemini
+            encoded_image = base64.b64encode(image_data).decode("utf-8")
+            image_uri = f"data:image/jpeg;base64,{encoded_image}"
+            human_message_content.append({
+                "type": "image_url",
+                "image_url": image_uri
+            })
         
         # Extract additional context if available
         context = []
@@ -144,18 +182,7 @@ def run_agent_1(state: Dict[str, Any]) -> Dict[str, Any]:
             context.append(f"Location: {state['location']}")
             
         # Create multimodal input for Gemini
-        human_message = HumanMessage(
-            content=[
-                {
-                    "type": "text",
-                    "text": query if query else "Please analyze this image for property issues."
-                },
-                {
-                    "type": "image_url",
-                    "image_url": image_uri
-                }
-            ]
-        )
+        human_message = HumanMessage(content=human_message_content)
         
         # Initialize the LLM
         llm = config.get_gemini_flash_llm()
@@ -178,7 +205,7 @@ def run_agent_1(state: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {
             **state,
-            "response": f"I encountered an error analyzing the image: {str(e)}. Please try again with a clearer image.",
+            "response": f"I encountered an error analyzing the issue: {str(e)}. Please try again with a clearer image or question.",
             "sender": "agent_1"
         }
 
@@ -279,6 +306,20 @@ def route_query(state: Dict[str, Any]) -> Dict[str, Any]:
                 "response": "Please provide a question or upload an image of a property issue so I can assist you."
             }
         
+        # Check for conversation context indicators
+        if "CONVERSATION CONTEXT:" in query:
+            # Extract the context to see which agent was previously used
+            if "Previously analyzed property issue:" in query:
+                return {
+                    **state,
+                    "next": "agent_1"
+                }
+            elif "Previously discussed:" in query and any(keyword in query.lower() for keyword in ["tenant", "landlord", "rent", "lease"]):
+                return {
+                    **state,
+                    "next": "agent_2"
+                }
+        
         # Check for explicit tenancy keywords before using LLM
         tenancy_keywords = ["tenant", "landlord", "rent", "lease", "deposit", "eviction", 
                            "contract", "tenancy", "agreement", "notice", "vacate",
@@ -303,6 +344,24 @@ def route_query(state: Dict[str, Any]) -> Dict[str, Any]:
                 **state,
                 "next": "agent_2"
             }
+        
+        # Property-related keywords (if not already routed to tenancy)
+        property_issue_keywords = ["mold", "leak", "crack", "broken", "damage", "damp", "water", 
+                                 "wall", "ceiling", "floor", "roof", "plumbing", "electrical", 
+                                 "fixture", "appliance", "heating", "cooling", "hvac", "pest"]
+        
+        if any(keyword in query.lower() for keyword in property_issue_keywords):
+            if not image_data:
+                return {
+                    **state,
+                    "next": "clarification",
+                    "response": "It looks like you're asking about a property issue. Could you upload an image of the issue so I can analyze it better?"
+                }
+            else:
+                return {
+                    **state,
+                    "next": "agent_1"
+                }
         
         # If no clear keyword match, use the LLM for more nuanced routing
         llm = config.get_gemini_flash_llm()
