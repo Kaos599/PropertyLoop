@@ -24,6 +24,7 @@ A sophisticated AI-powered real estate assistant built to serve landlords, prope
 - **Severity Assessment**: AI-driven evaluation of issue urgency and potential impact
 - **Solution Recommendations**: Practical guidance for addressing common property problems
 - **Professional Referral**: Suggestions for when to contact qualified professionals
+- **Image Analysis**: Upload and analyze property images to identify issues visually
 
 ### ⚖️ Legal & Regulatory Guidance
 - **Tenancy Law Information**: Clear explanations of rights and responsibilities
@@ -36,11 +37,25 @@ A sophisticated AI-powered real estate assistant built to serve landlords, prope
 - **Multimedia Support**: Upload images of property issues for enhanced analysis
 - **Location Awareness**: Provides region-specific advice when location is specified
 - **User-Friendly Design**: Intuitive interface with premium enterprise SaaS aesthetic
+- **Conversation Memory**: Maintains context across multiple messages for natural conversations
+- **Reference Tracking**: Intelligently tracks previous discussions to provide coherent follow-up responses
 
 ### 🔍 Advanced Information Retrieval
 - **Knowledge Integration**: Combines specialized property management knowledge with broader real estate information
 - **Citation Support**: References reliable sources for legal and regulatory information
 - **Up-to-date Information**: Access to current best practices and regulations
+
+### 🔄 Enhanced Conversation Context
+- **Intelligent Context Extraction**: Maintains conversation flow by extracting and using relevant information from previous messages
+- **Image Context Management**: Properly integrates image analysis results into conversational context
+- **Property Details Integration**: Incorporates property information (type, age, location) into responses
+- **Conversation Continuity**: Follows up on previously discussed issues with appropriate context
+
+### 🛡️ Error Handling & Reliability
+- **Robust Error Prevention**: Advanced error handling for uninterrupted user experience
+- **Reliable Image Processing**: Ensures images are processed only once and properly analyzed
+- **Graceful Degradation**: Maintains functionality even when certain data is missing or incomplete
+- **Safe Message Processing**: Protects against issues with unexpected message formats or content
 
 ## Technical Overview
 
@@ -52,6 +67,14 @@ The system uses a directed knowledge graph implemented with LangGraph to coordin
 3. **Legal Agent**: Provides regulatory and compliance information
 4. **Tenancy FAQ Agent**: Answers common questions about tenancy agreements and processes
 5. **Safety Agent**: Addresses urgent safety concerns with appropriate warnings
+
+### Context Management System
+The application implements sophisticated context management through:
+
+1. **Historical Message Analysis**: Intelligently extracts relevant information from previous interactions
+2. **Context-Aware Queries**: Enhances user queries with appropriate historical context
+3. **Message Type Handling**: Properly processes different types of messages (text, images, structured responses)
+4. **Error-Resistant Processing**: Handles missing or malformed data gracefully
 
 ### Technologies Used
 - **LangChain & LangGraph**: For agent orchestration and knowledge management
@@ -95,6 +118,14 @@ streamlit run app.py
 Ask about specific property problems:
 > "There's a water leak under my kitchen sink. What should I do?"
 
+Upload an image of the issue for better analysis:
+> [Upload image] "What's wrong with this wall and how can I fix it?"
+
+### Follow-up Questions
+The chatbot maintains context for natural follow-ups:
+> "How much would it cost to repair?"
+> "Is this something I can do myself?"
+
 ### Tenancy Questions
 Inquire about common rental situations:
 > "My landlord wants to increase my rent. How much notice should they give me?"
@@ -106,6 +137,24 @@ Get information about regulations:
 ### Regional Specifics
 Get location-aware advice:
 > "What are the eviction notice requirements in London?"
+
+## Advanced Features
+
+### Context Management
+The system maintains conversation context across multiple interactions, allowing for natural follow-up questions without repeating information. For example:
+
+1. Ask about a property issue
+2. Upload an image of the issue
+3. Ask follow-up questions about repair costs, DIY options, or professional services
+4. The chatbot remembers the context and provides coherent responses
+
+### Error Handling
+The application gracefully handles various types of errors:
+
+- Missing or malformed data
+- Interrupted operations
+- Image processing failures
+- Connectivity issues
 
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
