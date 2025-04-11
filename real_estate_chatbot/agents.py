@@ -214,14 +214,12 @@ def run_agent_2(state: Dict[str, Any]) -> Dict[str, Any]:
         else:
             full_query = query
             
-        # Use the LangChain wrapper for Google Gemini instead of direct client
-        llm = config.get_gemini_pro_llm()
+        # Use the LangChain wrapper for Google Gemini with flash model instead of pro
+        llm = config.get_gemini_flash_llm()
         
         # Create a prompt that includes instructions for web search
         search_prompt = f"""
 {TENANCY_FAQ_SYSTEM_PROMPT}
-
-User question: {full_query}
 
 Before answering:
 1. Perform a web search to find current information about this tenancy question
@@ -231,7 +229,8 @@ Before answering:
         
         # Create messages for the LLM
         messages = [
-            SystemMessage(content=search_prompt)
+            SystemMessage(content=search_prompt),
+            HumanMessage(content=full_query)
         ]
         
         # Run inference with structured output
@@ -280,7 +279,32 @@ def route_query(state: Dict[str, Any]) -> Dict[str, Any]:
                 "response": "Please provide a question or upload an image of a property issue so I can assist you."
             }
         
-        # Initialize the LLM
+        # Check for explicit tenancy keywords before using LLM
+        tenancy_keywords = ["tenant", "landlord", "rent", "lease", "deposit", "eviction", 
+                           "contract", "tenancy", "agreement", "notice", "vacate",
+                           "property manager", "rental", "evict", "sublet"]
+        
+        # Check if query contains "[TENANCY QUESTION]" tag
+        if "[TENANCY QUESTION]" in query:
+            return {
+                **state,
+                "next": "agent_2"
+            }
+        
+        # Check for common tenancy question patterns
+        if "how much notice" in query.lower() and ("vacate" in query.lower() or "leave" in query.lower() or "move out" in query.lower()):
+            return {
+                **state,
+                "next": "agent_2"
+            }
+            
+        if any(keyword in query.lower() for keyword in tenancy_keywords):
+            return {
+                **state,
+                "next": "agent_2"
+            }
+        
+        # If no clear keyword match, use the LLM for more nuanced routing
         llm = config.get_gemini_flash_llm()
         
         # Get routing decision
