@@ -214,112 +214,35 @@ def run_agent_2(state: Dict[str, Any]) -> Dict[str, Any]:
         else:
             full_query = query
             
-        # Initialize the Google genai client
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable not set")
-            
-        genai.configure(api_key=api_key)
-        client = genai.Client()
+        # Use the LangChain wrapper for Google Gemini instead of direct client
+        llm = config.get_gemini_pro_llm()
         
-        # Set up system instruction and user query
-        system_instruction = TENANCY_FAQ_SYSTEM_PROMPT
+        # Create a prompt that includes instructions for web search
+        search_prompt = f"""
+{TENANCY_FAQ_SYSTEM_PROMPT}
+
+User question: {full_query}
+
+Before answering:
+1. Perform a web search to find current information about this tenancy question
+2. If location-specific information is available, prioritize that
+3. Cite your sources in the legal_references field
+"""
         
-        # Create the model configuration with Google Search tool
-        model = "gemini-1.5-pro"  # Using more capable model for structured output
-        
-        # Format contents with system instruction and user query
-        contents = [
-            types.Content(
-                role="user",
-                parts=[
-                    types.Part.from_text(text=f"{system_instruction}\n\nUser question: {full_query}"),
-                ],
-            ),
+        # Create messages for the LLM
+        messages = [
+            SystemMessage(content=search_prompt)
         ]
         
-        # Configure the Google Search tool
-        tools = [
-            types.Tool(google_search=types.GoogleSearch())
-        ]
+        # Run inference with structured output
+        result = llm.with_structured_output(TenancyFAQResponse).invoke(messages)
         
-        # Set up generation config
-        generation_config = {
-            "temperature": 0.2,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 2048,
+        # Return the structured output directly to be handled by the UI
+        return {
+            **state,
+            "response": result,
+            "sender": "agent_2"
         }
-        
-        safety_settings = [
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-                "category": "HARM_CATEGORY_HATE_SPEECH",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            }
-        ]
-        
-        # Make the API call with tool use enabled
-        response = client.generate_content(
-            model=model,
-            contents=contents,
-            generation_config=generation_config,
-            safety_settings=safety_settings,
-            tools=tools,
-        )
-        
-        # Process the response to create structured output
-        try:
-            # Initialize the LLM for structured output
-            llm = config.get_gemini_pro_llm()
-            
-            # Extract the response text
-            response_text = response.text
-            
-            # Process through structured output parser
-            structured_response = llm.with_structured_output(TenancyFAQResponse).invoke(
-                [
-                    SystemMessage(content=f"""
-                    Parse the following response into the TenancyFAQResponse schema format. 
-                    Extract relevant information to populate each field correctly:
-                    - answer: The main answer to the user's question
-                    - legal_references: Any laws or regulations mentioned
-                    - regional_specifics: Location-specific information if present
-                    - additional_resources: Any mentioned organizations, websites, or resources for further help
-                    
-                    Response to parse:
-                    {response_text}
-                    """),
-                ]
-            )
-            
-            # Format the structured response for display
-            formatted_response = structured_response
-            
-            return {
-                **state,
-                "response": formatted_response,
-                "sender": "agent_2"
-            }
-            
-        except Exception as parsing_error:
-            # If structured parsing fails, return the raw response
-            return {
-                **state,
-                "response": response.text,
-                "sender": "agent_2"
-            }
         
     except Exception as e:
         return {

@@ -20,7 +20,7 @@ def get_gemini_flash_llm():
         raise ValueError("GOOGLE_API_KEY environment variable not set")
     
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.0-flash",
         google_api_key=api_key,
         temperature=0.2,
         convert_system_message_to_human=True
@@ -36,7 +36,7 @@ def get_gemini_pro_llm():
         raise ValueError("GOOGLE_API_KEY environment variable not set")
     
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro",
+        model="gemini-2.0-flash-thinking-exp-01-21",
         google_api_key=api_key,
         temperature=0.3,
         convert_system_message_to_human=True
